@@ -62,7 +62,7 @@ app.post('/login/', async (request, response) => {
     const isPasswordMatched = await bcrypt.compare(password, dbUser.password)
     if (isPasswordMatched === true) {
       const payload = {username: username}
-      const jwtToken = jwt.sign(payload, 'qwerty')
+      const jwtToken = jwt.sign(payload, 'mySecretCode')
       response.send({jwtToken})
     } else {
       response.status(400)
@@ -81,7 +81,7 @@ const authenticateToken = (request, response, next) => {
     response.status(401)
     response.send('Invalid JWT Token')
   } else {
-    jwt.verify(jwtToken, 'qwerty', async (error, payload) => {
+    jwt.verify(jwtToken, 'mySecretCode', async (error, payload) => {
       if (error) {
         response.status(401)
         response.send('Invalid JWT Token')
@@ -98,8 +98,8 @@ app.get('/user/tweets/feed/', authenticateToken, async (request, response) => {
   const tweetsQuery = `SELECT
                         user.username AS username, tweet.tweet AS tweet,tweet.date_time AS dateTime
                       FROM
-                        user NATURAL JOIN tweet
-                      WHERE user.username = '${username}'
+                        follower INNER JOIN tweet ON follower.following_user_id = tweet.user_id INNER JOIN user ON tweet.user_id = user.user_id
+                      WHERE follower.follower_user_id=(SELECT user.user_id FROM user WHERE username='${username}')
                       ORDER BY tweet.dateTime DESC
                       LIMIT 4`
   const userTweets = await db.all(tweetsQuery)
@@ -131,7 +131,7 @@ app.get('/tweets/:tweetId/', authenticateToken, async (request, response) => {
                   follower.following_user_id as followingUserId
                 FROM
                   user INNER JOIN follower ON user.user_id=follower.follower_user_id
-                WHERE user.username = '${username}'`
+                WHERE follower.follower_user_id=(SELECT user.user_id FROM user WHERE username='${username}')`
   const userFollowingArray = await db.all(userFollowingQuery)
   const userFollowing = userFollowingArray.map(
     eachItem => eachItem.followingUserId,
@@ -157,7 +157,7 @@ app.get('/tweets/:tweetId/', authenticateToken, async (request, response) => {
                           GROUP BY reply.tweet_id
                           HAVING reply.tweet_id = ${tweetId}`
     const responseObject = await db.get(responseQuery)
-    const tweetDetails = tweetText + responseObject + tweetDate
+    const tweetDetails = {...tweetText, ...responseObject, ...tweetDate}
     response.send(tweetDetails)
   } else {
     response.status(401)
@@ -176,7 +176,7 @@ app.get(
                   follower.following_user_id as followingUserId
                 FROM
                   user INNER JOIN follower ON user.user_id=follower.follower_user_id
-                WHERE user.username = '${username}'`
+                WHERE follower.follower_user_id=(SELECT user.user_id FROM user WHERE username='${username}')`
     const userFollowingArray = await db.all(userFollowingQuery)
     const userFollowing = userFollowingArray.map(
       eachItem => eachItem.followingUserId,
@@ -222,7 +222,7 @@ app.get(
                   follower.following_user_id as followingUserId
                 FROM
                   user INNER JOIN follower ON user.user_id=follower.follower_user_id
-                WHERE user.username = '${username}'`
+                WHERE follower.follower_user_id=(SELECT user.user_id FROM user WHERE username='${username}')`
     const userFollowingArray = await db.all(userFollowingQuery)
     const userFollowing = userFollowingArray.map(
       eachItem => eachItem.followingUserId,
@@ -281,7 +281,7 @@ app.post('/user/tweets/', authenticateToken, async (request, response) => {
   const date = format(new Date(), 'yyyy-MM-d h:m:s')
   const addtweetQuery = `INSERT INTO
                             tweet (tweet,user_id,date_time)
-                          VALUES ('${tweet}',${userId},${date})`
+                          VALUES ('${tweet}',${userId},'${date}')`
   await db.run(addtweetQuery)
   response.send('Created a Tweet')
 })
