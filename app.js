@@ -5,7 +5,6 @@ const {open} = require('sqlite')
 const sqlite3 = require('sqlite3')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
-const {format} = require('date-fns')
 
 const dbPath = path.join(__dirname, 'twitterClone.db')
 
@@ -57,7 +56,7 @@ app.post('/login/', async (request, response) => {
   const dbUser = await db.get(userQuery)
   if (dbUser === undefined) {
     response.status(400)
-    response.send('Invalid User')
+    response.send('Invalid user')
   } else {
     const isPasswordMatched = await bcrypt.compare(password, dbUser.password)
     if (isPasswordMatched === true) {
@@ -66,7 +65,7 @@ app.post('/login/', async (request, response) => {
       response.send({jwtToken})
     } else {
       response.status(400)
-      response.send('Invalid Password')
+      response.send('Invalid password')
     }
   }
 })
@@ -107,10 +106,12 @@ app.get('/user/tweets/feed/', authenticateToken, async (request, response) => {
 })
 
 app.get('/user/following/', authenticateToken, async (request, response) => {
+  const {username} = request
   const userFollowingQuery = `SELECT
                                 DISTINCT user.username as name
                               FROM
-                                user INNER JOIN follower ON user.user_id=follower.following_user_id`
+                                user INNER JOIN follower ON user.user_id=follower.following_user_id
+                              WHERE user.username='${username}'`
   const usersFollowing = await db.all(userFollowingQuery)
   response.send(usersFollowing)
 })
@@ -118,7 +119,8 @@ app.get('/user/following/', authenticateToken, async (request, response) => {
 app.get('/user/followers/', authenticateToken, async (request, response) => {
   const userFollowersQuery = `SELECT
                                 DISTINCT user.username as name
-                              FROM user INNER JOIN follower ON user.user_id=follower.follower_user_id`
+                              FROM user INNER JOIN follower ON user.user_id=follower.follower_user_id
+                              WHERE follower.following_user_id=(SELECT user.user_id FROM user WHERE username='${username}')`
   const usersFollowers = await db.all(userFollowersQuery)
   response.send(usersFollowers)
 })
@@ -255,7 +257,7 @@ app.get(
 
 app.get('/user/tweets/', authenticateToken, async (request, response) => {
   const {username} = request
-  const getUserIdQuery = `SELECT user_id FROM user WHERE username = '${username}'`
+  const getUserIdQuery = `SELECT * FROM user WHERE username = '${username}'`
   const getUserIdObject = await db.get(getUserIdQuery)
   const userId = getUserIdObject.user_id
 
