@@ -274,17 +274,33 @@ app.get('/user/tweets/', authenticateToken, async (request, response) => {
   const getUserIdObject = await db.get(getUserIdQuery)
   const userId = getUserIdObject.user_id
 
+  // const tweetQuery = `SELECT
+  //                       tweet.tweet AS tweet,
+  //                       COUNT(like.like_id) AS likes,
+  //                       COUNT(reply.reply_id) AS replies,
+  //                       tweet.date_time AS dateTime
+  //                     FROM
+  //                       tweet
+  //                       LEFT JOIN like ON tweet.tweet_id = like.tweet_id
+  //                       LEFT JOIN reply ON tweet.tweet_id = reply.tweet_id
+  //                     WHERE tweet.user_id = ${userId}
+  //                     GROUP BY tweet.tweet_id`
   const tweetQuery = `SELECT
-                        tweet.tweet AS tweet,
-                        COUNT(like.like_id) AS likes,
-                        COUNT(reply.reply_id) AS replies,
-                        tweet.date_time AS dateTime
-                      FROM
-                        tweet
-                        LEFT JOIN like ON tweet.tweet_id = like.tweet_id
-                        LEFT JOIN reply ON tweet.tweet_id = reply.tweet_id
-                      WHERE tweet.user_id = ${userId}
-                      GROUP BY tweet.tweet_id`
+	                    	tweet,
+	                    	(
+	                    		SELECT COUNT(like_id)
+	                    		FROM like
+	                    		WHERE tweet_id = tweet.tweet_id
+	                    	) AS likes,
+	                    	(
+	                    		SELECT COUNT(reply_id)
+	                    		FROM reply
+	                    		WHERE tweet_id = tweet.tweet_id
+	                    	) AS replies,
+	                    	date_time AS dateTime
+	                    FROM tweet
+	                    WHERE user_id = ${userId}`
+
   const userTweets = await db.all(tweetQuery)
   response.send(userTweets)
 })
