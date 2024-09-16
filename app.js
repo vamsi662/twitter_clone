@@ -280,7 +280,9 @@ app.get('/user/tweets/', authenticateToken, async (request, response) => {
                         COUNT(reply.reply_id) AS replies,
                         tweet.date_time AS dateTime
                       FROM
-                        (tweet INNER JOIN reply ON tweet.tweet_id=reply.tweet_id) AS T INNER JOIN like ON tweet.tweet_id = like.tweet_id
+                        tweet
+                        LEFT JOIN like ON tweet.tweet_id = like.tweet_id
+                        LEFT JOIN reply ON tweet.tweet_id = reply.tweet_id
                       WHERE tweet.user_id = ${userId}
                       GROUP BY tweet.tweet_id`
   const userTweets = await db.all(tweetQuery)
@@ -295,8 +297,8 @@ app.post('/user/tweets/', authenticateToken, async (request, response) => {
   const userId = getUserIdObject.user_id
   //const date = format(new Date(), 'yyyy-MM-dd h:m:s')
   const addtweetQuery = `INSERT INTO
-                            tweet (tweet)
-                          VALUES ('${tweet}')`
+                            tweet (user_id,tweet,date_time)
+                          VALUES (${userId},'${tweet}','${new Date()}')`
   await db.run(addtweetQuery)
   response.send('Created a Tweet')
 })
